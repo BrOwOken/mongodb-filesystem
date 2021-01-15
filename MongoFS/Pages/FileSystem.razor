@@ -4,10 +4,15 @@
 @using MongoDB.Bson;
 @inject DatabaseService dbService
 
+<button class="btn btn-dark" @onclick="(e) => { GoBack(); }">&lt; Go back</button>
+
 @if (currentItemId == Guid.Empty)
 {
-    <h3>Drives</h3>
-    <input type="text" @bind="nameInput" placeholder="Enter drive name" />
+    <h3 class="mt-3">Drives</h3>
+    <div class="form-group">
+        <label for="nameInput">Drive name</label>
+        <input class="form-control" type="text" @bind="nameInput" name="nameInput" />
+    </div>
     <button class="btn btn-primary" @onclick="(e) => { AddDrive(nameInput); }">Add drive</button>
 
     <table class="table mt-3">
@@ -23,7 +28,7 @@
             <td>@item.size</td>
             <td>@item.id</td>
 
-            <td><button class="btn btn-sm btn-success" @onclick="(e) => GetItems(item.id, FileSystemType.Drive)">Open</button></td>
+            <td><button class="btn btn-sm btn-success" @onclick="(e) => {AddToHistory(currentItemId, currentItemType); GetItems(item.id, FileSystemType.Drive); }">Open</button></td>
             <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteDrive(item.id); }">Delete</button></td>
         </tr>
         }
@@ -33,36 +38,46 @@ else if (currentItemType == FileSystemType.Folder || currentItemType == FileSyst
 {
     if (currentItemType == FileSystemType.Drive)
     {
-        <h3>Drive @dbService.GetName(currentItemId, currentItemType)</h3>
+        <h3 class="mt-3">Drive @dbService.GetName(currentItemId, currentItemType)</h3>
     }
     else
     {
-        <h3>Folder @dbService.GetName(currentItemId, currentItemType)</h3>
+        <h3 class="mt-3">Folder @dbService.GetName(currentItemId, currentItemType)</h3>
     }
-    <div>
-        <select @bind="fileFolderSelection">
+<div>
+    <div class="form-group">
+        <label for="fileFolderSelect">Select type</label>
+        <select class="form-control" name="fileFolderSelect" @bind="fileFolderSelection">
             <option value="folder">Folder</option>
             <option value="file">File</option>
         </select>
-        <input type="text" @bind="nameInput" placeholder="Enter name" />
-        @if (fileFolderSelection == "file")
-        {
-            <input type="text" @bind="fileType" placeholder="File type">
-            <button class="btn btn-primary" @onclick="(e) => { AddItem(FileSystemType.File); }">Add file</button>
-    
-        }
-        else
-        {
-            <button class="btn btn-primary" @onclick="(e) => { AddItem(FileSystemType.Folder); }">Add folder</button>
-        }
     </div>
-    
+
+    <div class="form-group">
+        <label for="nameInput">Name</label>
+        <input class="form-control" type="text" @bind="nameInput" name="nameInput" placeholder="Enter name" />
+    </div>
+
     @if (fileFolderSelection == "file")
     {
-    <div style="width: 100%;">
-        <textarea @bind="fileData" placeholder="Insert data" rows="4">Sample data</textarea>
-    </div>
+        <div class="form-group">
+            <label for="fileType">File type</label>
+            <input class="form-control" name="fileType" type="text" @bind="fileType">
+        </div>
+
+        <div class="form-group">
+            <label for="fileData">Insert file data</label>
+            <textarea class="form-control" @bind="fileData" name="fileData" rows="4">Sample data</textarea>
+        </div>
+
+        <button class="btn btn-primary" @onclick="(e) => { AddItem(FileSystemType.File); }">Add file</button>
+
     }
+    else
+    {
+        <button class="btn btn-primary" @onclick="(e) => { AddItem(FileSystemType.Folder); }">Add folder</button>
+    }
+</div>
 
 
     <table class="table mt-3">
@@ -81,7 +96,7 @@ else if (currentItemType == FileSystemType.Folder || currentItemType == FileSyst
                 <td>@folder.created</td>
                 <td>@folder.size</td>
                 <td>@folder.id</td>
-                <td><button class="btn btn-sm btn-success" @onclick="(e) => { GetItems(folder.id, FileSystemType.Folder); }">Open</button></td>
+                <td><button class="btn btn-sm btn-success" @onclick="(e) => {AddToHistory(currentItemId, currentItemType); GetItems(folder.id, FileSystemType.Folder);}">Open</button></td>
                 <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteItem(folder.id, FileSystemType.Folder); }">Delete</button></td>
             </tr>
         }
@@ -93,7 +108,7 @@ else if (currentItemType == FileSystemType.Folder || currentItemType == FileSyst
                 <td>@file.created</td>
                 <td>@file.size</td>
                 <td>@file.id</td>
-                <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteItem(file.id, FileSystemType.File); }">Delete</button></td>
+                <td><button class="btn btn-sm btn-danger" @onclick="(e) => {AddToHistory(currentItemId, currentItemType); DeleteItem(file.id, FileSystemType.File); }">Delete</button></td>
             </tr>
         }
     </table>
@@ -116,18 +131,14 @@ else
     Guid currentItemId = Guid.Empty;
     FileSystemType currentItemType;
 
-    Stack<Dictionary<Guid, FileSystemType>> history;
+    Stack<Page> history;
 
     protected override void OnInitialized()
     {
-        history = new Stack<Dictionary<Guid, FileSystemType>>();
+        history = new Stack<Page>();
         drives = dbService.GetDrives();
-
     }
-    //public EventCallback Add()
-    //{
 
-    //}
     public EventCallback GetItems(Guid id, FileSystemType type)
     {
         items = dbService.GetItems(id, type);
@@ -135,6 +146,7 @@ else
         currentItemId = id;
         currentItemType = type;
         this.StateHasChanged();
+        Console.WriteLine("get items called");
         return new EventCallback();
     }
     public EventCallback AddDrive(string name)
@@ -142,6 +154,7 @@ else
         dbService.AddDrive(name);
         drives = dbService.GetDrives();
         this.StateHasChanged();
+
         return new EventCallback();
     }
     public EventCallback AddItem(FileSystemType type)
@@ -167,6 +180,32 @@ else
     {
         dbService.Delete(id, type);
         return GetItems(currentItemId, currentItemType);
+    }
+    public void AddToHistory(Guid folderId, FileSystemType type)
+    {
+        history.Push(new Page(folderId, type));
+        Console.WriteLine("history added");
+    }
+    public EventCallback GoBack()
+    {
+        if(history.Count == 0)
+        {
+            return new EventCallback();
+        }
+        else
+        {
+            var page = history.Pop();
+            if(page.Id == Guid.Empty)
+            {
+                currentItemId = Guid.Empty;
+                drives = dbService.GetDrives();
+                this.StateHasChanged();
+                return new EventCallback();
+            }
+            currentItemId = page.Id;
+            currentItemType = page.Type;
+            return GetItems(currentItemId, currentItemType);
+        }
     }
     public void DivideFiles()
     {
