@@ -47,15 +47,26 @@ namespace MongoFS.Data
                 folderCollection.UpdateOne(filter, update);
             }
         }
-        public void AddFile(Guid parentId, FileSystemType parentType)
+        public void AddFile(Guid parentId, FileSystemType parentType, string name, string data, string type)
         {
-            if(parentType == FileSystemType.Drive)
+            var newFile = new File(name, data, type, parentId, parentType);
+            fileCollection.InsertOne(newFile);
+            if (parentType == FileSystemType.Drive)
             {
-
+                var filter = Builders<Drive>.Filter.Eq("id", parentId);
+                var drive = driveCollection.Find(filter).Single();
+                drive.files.Add(newFile.id);
+                var update = Builders<Drive>.Update.Set("files", drive.files);
+                driveCollection.UpdateOne(filter, update);
             }
             else if(parentType == FileSystemType.Folder)
             {
-
+                var filter = Builders<Folder>.Filter.Eq("id", parentId);
+                var folder = folderCollection.Find(filter).Single();
+                
+                folder.files.Add(newFile.id);
+                var update = Builders<Folder>.Update.Set("files", folder.files);
+                folderCollection.UpdateOne(filter, update);
             }
         }
         public void AddDrive(string name)
@@ -127,6 +138,25 @@ namespace MongoFS.Data
             if(type == FileSystemType.File)
             {
                 var filter = Builders<File>.Filter.Eq("id", id);
+                var deletedFile = fileCollection.Find(filter).Single();
+                if(deletedFile.parentType == FileSystemType.Drive)
+                {
+                    var parentDriveFilter = Builders<Drive>.Filter.Eq("id", deletedFile.parentId);
+                    var parentDrive = driveCollection.Find(parentDriveFilter).Single();
+                    parentDrive.files.Remove(id);
+                    var parentDriveUpdate = Builders<Drive>.Update.Set("files", parentDrive.files);
+                    driveCollection.UpdateOne(parentDriveFilter, parentDriveUpdate);
+                }
+                else if(deletedFile.parentType == FileSystemType.Folder)
+                {
+                    var parentFolderFilter = Builders<Folder>.Filter.Eq("id", deletedFile.parentId);
+                    var parentFolder = folderCollection.Find(parentFolderFilter).Single();
+                    if (parentFolder.files.Remove(id))
+                    {
+                        var parentFolderUpdate = Builders<Folder>.Update.Set("files", parentFolder.files);
+                        folderCollection.UpdateOne(parentFolderFilter, parentFolderUpdate);
+                    }
+                }
                 fileCollection.DeleteOne(filter);
             }
             else if(type == FileSystemType.Folder)

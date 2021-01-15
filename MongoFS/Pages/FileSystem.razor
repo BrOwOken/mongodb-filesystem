@@ -13,16 +13,19 @@
     <table class="table mt-3">
         <tr>
             <th>Name</th>
+            <th>Size</th>
             <th>ID</th>
         </tr>
         @foreach (var item in drives)
         {
-            <tr>
-                <td>@item.name</td>
-                <td>@item.id</td>
-                <td><button class="btn btn-sm btn-success" @onclick="(e) => GetItems(item.id, FileSystemType.Drive)">Open</button></td>
-                <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteDrive(item.id); }">Delete</button></td>
-            </tr>
+        <tr>
+            <td>@item.name</td>
+            <td>@item.size</td>
+            <td>@item.id</td>
+
+            <td><button class="btn btn-sm btn-success" @onclick="(e) => GetItems(item.id, FileSystemType.Drive)">Open</button></td>
+            <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteDrive(item.id); }">Delete</button></td>
+        </tr>
         }
     </table>
 }
@@ -149,7 +152,7 @@ else
         }
         else
         {
-            //dbService.AddFile(currentItemId, currentItemType, nameInput);
+            dbService.AddFile(currentItemId, currentItemType, nameInput, fileData, fileType);
         }
         return GetItems(currentItemId, currentItemType);
     }
