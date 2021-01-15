@@ -1,0 +1,184 @@
+﻿@page "/filesystem"
+@using MongoFS.Data
+@using MongoDB.Driver;
+@using MongoDB.Bson;
+@inject DatabaseService dbService
+
+@if (currentItemId == Guid.Empty)
+{
+    <h3>Drives</h3>
+    <input type="text" @bind="nameInput" placeholder="Enter drive name" />
+    <button class="btn btn-primary" @onclick="(e) => { AddDrive(nameInput); }">Add drive</button>
+
+    <table class="table mt-3">
+        <tr>
+            <th>Name</th>
+            <th>ID</th>
+        </tr>
+        @foreach (var item in drives)
+        {
+            <tr>
+                <td>@item.name</td>
+                <td>@item.id</td>
+                <td><button class="btn btn-sm btn-success" @onclick="(e) => GetItems(item.id, FileSystemType.Drive)">Open</button></td>
+                <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteDrive(item.id); }">Delete</button></td>
+            </tr>
+        }
+    </table>
+}
+else if (currentItemType == FileSystemType.Folder || currentItemType == FileSystemType.Drive)
+{
+    if (currentItemType == FileSystemType.Drive)
+    {
+        <h3>Drive @dbService.GetName(currentItemId, currentItemType)</h3>
+    }
+    else
+    {
+        <h3>Folder @dbService.GetName(currentItemId, currentItemType)</h3>
+    }
+    <div>
+        <select @bind="fileFolderSelection">
+            <option value="folder">Folder</option>
+            <option value="file">File</option>
+        </select>
+        <input type="text" @bind="nameInput" placeholder="Enter name" />
+        @if (fileFolderSelection == "file")
+        {
+            <input type="text" @bind="fileType" placeholder="File type">
+            <button class="btn btn-primary" @onclick="(e) => { AddItem(FileSystemType.File); }">Add file</button>
+    
+        }
+        else
+        {
+            <button class="btn btn-primary" @onclick="(e) => { AddItem(FileSystemType.Folder); }">Add folder</button>
+        }
+    </div>
+    
+    @if (fileFolderSelection == "file")
+    {
+    <div style="width: 100%;">
+        <textarea @bind="fileData" placeholder="Insert data" rows="4">Sample data</textarea>
+    </div>
+    }
+
+
+    <table class="table mt-3">
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Created</th>
+            <th>Size</th>
+            <th>ID</th>
+        </tr>
+        @foreach (var folder in folders)
+        {
+            <tr>
+                <td>@folder.name</td>
+                <td>Folder</td>
+                <td>@folder.created</td>
+                <td>@folder.size</td>
+                <td>@folder.id</td>
+                <td><button class="btn btn-sm btn-success" @onclick="(e) => { GetItems(folder.id, FileSystemType.Folder); }">Open</button></td>
+                <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteItem(folder.id, FileSystemType.Folder); }">Delete</button></td>
+            </tr>
+        }
+        @foreach (var file in files)
+        {
+            <tr>
+                <td>@file.name</td>
+                <td>@file.Type</td>
+                <td>@file.created</td>
+                <td>@file.size</td>
+                <td>@file.id</td>
+                <td><button class="btn btn-sm btn-danger" @onclick="(e) => { DeleteItem(file.id, FileSystemType.File); }">Delete</button></td>
+            </tr>
+        }
+    </table>
+}
+else
+{
+
+}
+@code {
+    List<Drive> drives = new List<Drive>();
+    List<Folder> folders;
+    List<File> files;
+    List<FileSystemItem> items;
+
+    string fileData;
+    string nameInput;
+    string fileFolderSelection;
+    string fileType;
+
+    Guid currentItemId = Guid.Empty;
+    FileSystemType currentItemType;
+
+    Stack<Dictionary<Guid, FileSystemType>> history;
+
+    protected override void OnInitialized()
+    {
+        history = new Stack<Dictionary<Guid, FileSystemType>>();
+        drives = dbService.GetDrives();
+
+    }
+    //public EventCallback Add()
+    //{
+
+    //}
+    public EventCallback GetItems(Guid id, FileSystemType type)
+    {
+        items = dbService.GetItems(id, type);
+        DivideFiles();
+        currentItemId = id;
+        currentItemType = type;
+        this.StateHasChanged();
+        return new EventCallback();
+    }
+    public EventCallback AddDrive(string name)
+    {
+        dbService.AddDrive(name);
+        drives = dbService.GetDrives();
+        this.StateHasChanged();
+        return new EventCallback();
+    }
+    public EventCallback AddItem(FileSystemType type)
+    {
+        if (type == FileSystemType.Folder)
+        {
+            dbService.AddFolder(currentItemId, currentItemType, nameInput);
+        }
+        else
+        {
+            //dbService.AddFile(currentItemId, currentItemType, nameInput);
+        }
+        return GetItems(currentItemId, currentItemType);
+    }
+    public EventCallback DeleteDrive(Guid id)
+    {
+        dbService.Delete(id, FileSystemType.Drive);
+        drives = dbService.GetDrives();
+        this.StateHasChanged();
+        return new EventCallback();
+    }
+    public EventCallback DeleteItem(Guid id, FileSystemType type)
+    {
+        dbService.Delete(id, type);
+        return GetItems(currentItemId, currentItemType);
+    }
+    public void DivideFiles()
+    {
+        files = new List<File>();
+        folders = new List<Folder>();
+        foreach (var item in items)
+        {
+            if (item.GetType() == typeof(File))
+            {
+                files.Add((File)item);
+            }
+            else
+            {
+                folders.Add((Folder)item);
+            }
+        }
+    }
+}
