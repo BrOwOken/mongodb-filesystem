@@ -19,7 +19,6 @@ namespace MongoFS.Data
         {
             this.parentId = parentId;
             this.parentType = parentType;
-            Random r = new Random();
             id = Guid.NewGuid();
             created = DateTime.Now;
             this.name = name;

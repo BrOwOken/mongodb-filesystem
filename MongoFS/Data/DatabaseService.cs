@@ -55,9 +55,15 @@ namespace MongoFS.Data
             {
                 var filter = Builders<Drive>.Filter.Eq("id", parentId);
                 var drive = driveCollection.Find(filter).Single();
+
                 drive.files.Add(newFile.id);
+                drive.size += newFile.size;
+                
                 var update = Builders<Drive>.Update.Set("files", drive.files);
+                var sizeUpdate = Builders<Drive>.Update.Set("size", drive.size);
+
                 driveCollection.UpdateOne(filter, update);
+                driveCollection.UpdateOne(filter, sizeUpdate);
             }
             else if(parentType == FileSystemType.Folder)
             {
@@ -65,8 +71,44 @@ namespace MongoFS.Data
                 var folder = folderCollection.Find(filter).Single();
                 
                 folder.files.Add(newFile.id);
+                FolderSizeCalculate(newFile, parentId, parentType, false);
+
                 var update = Builders<Folder>.Update.Set("files", folder.files);
                 folderCollection.UpdateOne(filter, update);
+            }
+        }
+        public void FolderSizeCalculate(File file, Guid parentId, FileSystemType parentType, bool delete)
+        {
+            if(parentType == FileSystemType.Folder)
+            {
+                var filter = Builders<Folder>.Filter.Eq("id", parentId);
+                var parentFolder = folderCollection.Find(filter).Single();
+
+                if(!delete)
+                    parentFolder.size += file.size;
+                else
+                    parentFolder.size -= file.size;
+
+                var update = Builders<Folder>.Update.Set("size", parentFolder.size);
+                folderCollection.UpdateOne(filter, update);
+
+                if(!delete)
+                    FolderSizeCalculate(file, parentFolder.parentId, parentFolder.parentType, false);
+                else
+                    FolderSizeCalculate(file, parentFolder.parentId, parentFolder.parentType, true);
+            }
+            else
+            {
+                var filter = Builders<Drive>.Filter.Eq("id", parentId);
+                var parentDrive = driveCollection.Find(filter).Single();
+
+                if (!delete)
+                    parentDrive.size += file.size;
+                else
+                    parentDrive.size -= file.size;
+
+                var update = Builders<Drive>.Update.Set("size", parentDrive.size);
+                driveCollection.UpdateOne(filter, update);
             }
         }
         public void AddDrive(string name)
@@ -143,14 +185,23 @@ namespace MongoFS.Data
                 {
                     var parentDriveFilter = Builders<Drive>.Filter.Eq("id", deletedFile.parentId);
                     var parentDrive = driveCollection.Find(parentDriveFilter).Single();
+
                     parentDrive.files.Remove(id);
+                    parentDrive.size -= deletedFile.size;
+
                     var parentDriveUpdate = Builders<Drive>.Update.Set("files", parentDrive.files);
+                    var parentDriveSizeUpdate = Builders<Drive>.Update.Set("size", parentDrive.size);
+
                     driveCollection.UpdateOne(parentDriveFilter, parentDriveUpdate);
+                    driveCollection.UpdateOne(parentDriveFilter, parentDriveSizeUpdate);
                 }
                 else if(deletedFile.parentType == FileSystemType.Folder)
                 {
                     var parentFolderFilter = Builders<Folder>.Filter.Eq("id", deletedFile.parentId);
                     var parentFolder = folderCollection.Find(parentFolderFilter).Single();
+
+                    FolderSizeCalculate(deletedFile, deletedFile.parentId, FileSystemType.Folder, true);
+
                     if (parentFolder.files.Remove(id))
                     {
                         var parentFolderUpdate = Builders<Folder>.Update.Set("files", parentFolder.files);
@@ -184,8 +235,7 @@ namespace MongoFS.Data
                 }
                 foreach (var file in deletedFolder.files)
                 {
-                    var fileFilter = Builders<File>.Filter.Eq("id", file);
-                    fileCollection.DeleteOne(fileFilter);
+                    Delete(file, FileSystemType.File);
                 }
                 foreach(var folder in deletedFolder.folders)
                 {
@@ -210,9 +260,5 @@ namespace MongoFS.Data
                 driveCollection.DeleteOne(deleteFilter);
             }
         }
-        //public List<File> GetFiles(string path)
-        //{
-        //    return db.GetCollection<File>("root").AsQueryable().ToList();
-        //}
     }
 }

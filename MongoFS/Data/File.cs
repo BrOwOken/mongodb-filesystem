@@ -25,7 +25,7 @@ namespace MongoFS.Data
             this.name = name;
             this.data = data;
             this.fileType = fileType;
-            this.size = r.Next(1, 1000000);
+            this.size = r.Next(1, 9999);
             Type = FileSystemType.File;
         }
     }
