@@ -17,7 +17,8 @@ namespace MongoFS.Data
         private IMongoCollection<Folder> folderCollection;
         public DatabaseService()
         {
-            dbClient = new MongoClient("mongodb+srv://admin:Heslo123.@mongofreecluster.kfoft.mongodb.net/fileSystemDb?retryWrites=true&w=majority");
+            dbClient = new MongoClient("mongodb+srv://filesystem:GDwdds84lJX6NHjI@mongofreecluster.kfoft.mongodb.net/fileSystemDb?retryWrites=true&w=majority");
+            //dbClient = new MongoClient("mongodb://localhost:27017/fileSystemDb");
             db = dbClient.GetDatabase("fileSystemDb");
             driveCollection = db.GetCollection<Drive>("drives");
             fileCollection = db.GetCollection<File>("files");
